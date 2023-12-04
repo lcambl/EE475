@@ -18,6 +18,11 @@
 #include <BLE2902.h>
 #include "HX711.h"
 
+// Thresholds:
+long lowThresh = 100000;
+long medThresh = 300000;
+long highThresh = 500000;
+
 // Vibration motor setup
 Adafruit_DRV2605 drv;   // The variable used to interface with the DRV2605 chip
 uint8_t effect = 1;     // The global variable used to keep track of effects
@@ -99,30 +104,29 @@ void loop() {
     initializeSensor();
   } else {
     long filteredReading = scale.read() - avgReading - avgDiff;
-    Serial.println(filteredReading);
-    drv.setWaveform(0, effect);  // Set effect
-    drv.setWaveform(1, 0);       // End waveform
-
     // Play the effect
-    if (filteredReading >= 200000) {
+    if (filteredReading >= lowThresh && filteredReading < medThresh) {
+      drv.setWaveform(0, 123);
+      drv.setWaveform(1, 0);
       drv.go();
-      
+    } else if (filteredReading >= medThresh && filteredReading < highThresh) {
+      drv.setWaveform(0, 119);
+      drv.setWaveform(1, 0);
+      drv.go();
+    } else if (filteredReading >= highThresh) {
+      drv.setWaveform(0, 47);
+      drv.setWaveform(1, 47);
+      drv.setWaveform(2, 47);
+      drv.setWaveform(1, 0);
+      drv.go();
     }
+
     if (deviceConnected) {
       pCharacteristic->setValue((uint8_t*)&filteredReading, sizeof(filteredReading));
       pCharacteristic->notify();
     }
   }
   delay(10);
-  Serial.print("Effect #"); 
-  Serial.println(effect);
-  // Set the effect to play
-
-
-  // Pause for differentiation between effects
-  //delay(1000);
-  effect++;
-  if (effect > 117) effect = 1;
 }
 
 // Function to initialize the sensor
@@ -132,7 +136,7 @@ void initializeSensor() {
     Serial.println(samples);
     samples++;
     if (lastReading != 0) {
-        avgDiff += (reading - lastReading);
+      avgDiff += (reading - lastReading);
     }
     lastReading = reading;
 
